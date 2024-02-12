@@ -29,7 +29,6 @@ const driveFolder  = "Gmail Archive";
 const excludeLabels = [
   "Save Not Needed",
   "Patient Specific",
-  "SAH VMFH CSH",
 ];
 
 /** Set to false if you do not want to check for emails to review weekly */
@@ -89,7 +88,10 @@ const setup = () => {
     ScriptApp.newTrigger('main').timeBased().everyDays(1).atHour(3).create();
   }  
   if ( checkWeekly ) {
+    const now = new Date();
+    const runAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() + 1,0,0);
     ScriptApp.newTrigger('reviewEmails').timeBased().everyWeeks(1).onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(12).create();
+    ScriptApp.newTrigger('reviewEmails').timeBased().at(runAt).create();
   }  
 }
 
