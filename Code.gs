@@ -108,7 +108,65 @@ const main = () => {
   console.log('Export finished, beginning clean up')
   cleanUp();
 }
+const reviewEmails = (initial=true) => {
+  const _reviewLabel = ScriptStatus.get('_reviewLabel');
+  const _exportLabel = ScriptStatus.get('_exportLabel');
+  const _doneLabel = ScriptStatus.get('_doneLabel');
+  const _errorLabel = ScriptStatus.get('_errorLabel');
+  const _driveFolder = ScriptStatus.get('_driveFolder');
+  const _emailWeekly = ScriptStatus.get('_emailWeekly');
+  
+  /** @type Array */
+  let _excludeLabels = JSON.parse(ScriptStatus.get('_excludeLabels'));
+  _excludeLabels.push(_exportLabel, _doneLabel, _errorLabel);
 
+  let d = new Date();
+  d.setFullYear(d.getFullYear()-1);
+  d.setMonth(d.getMonth() + 1);
+  const archiveDate = Utilities.formatDate(d, "America/Los_Angeles", "yyyy-MM-dd");
+
+  let str = `before:${archiveDate} -label:${cleanLabel(_reviewLabel)}`;
+  _excludeLabels.forEach(lbl => str += ` -label:${cleanLabel(lbl)}`);
+  
+  const lblReview = getOrCreateLabel(_reviewLabel);
+
+  Logger.log("SEARCH: %s", str);
+  const threads = GmailApp.search(str);
+  const numThreads = threads.length;
+  Logger.log("Found %s threads", numThreads);
+  threads.forEach( thread => thread.addLabel(lblReview) );
+  if ( numThreads === 500 ) {
+    reviewEmails(false);
+  } else {
+    if ( numThreads > 0 || !initial ) {
+      const exported = ScriptStatus.count();
+
+      if ( _emailWeekly ) {
+        const folders = DriveApp.getFoldersByName(_driveFolder);
+        const folder = folders.next();
+        const folderUrl = folder.getUrl();
+
+        const emailOpts = {
+          htmlBody: `<h3 style="font-family: Montserrat,Roboto,Arial;color: #55a63a">GmailToPdf Script &ndash; Weekly Summary</h3>
+          <p style="font-family:Roboto,Arial;font-size:11pt;max-width:500px;">
+          <strong>${parseInt(exported)}</strong> emails with the ${getLabelSpan(_exportLabel)} label have been saved as PDFs to your 
+          <a style="color:#1155cc" href="${folderUrl}">${_driveFolder} folder</a> and relabeled as ${getLabelSpan(_doneLabel)}.</p>
+          <p style="font-family:Roboto,Arial;font-size:11pt;max-width:500px;">
+          Emails that will be deleted within the next month have been labeled ${getLabelSpan(_reviewLabel)}.
+          Review <a style="color:#1155cc" href="https://mail.google.com/mail/u/0/#label/${_reviewLabel.replace(/ /,'+')}">
+          all threads with this label</a> and add the ${getLabelSpan(_exportLabel)} label if they need to be exported.</p>
+          <p style="font-family:Roboto,Arial;font-size:11pt;max-width:500px;">
+          <em style="color:#54565a">Labels excluded from search: ${_excludeLabels.join(", ")}</em></p>`,
+          to: Session.getActiveUser().getEmail(),
+          subject: `Weekly Summary: Email export and review for deletion`,
+          noReply: true,
+          name: "Gmail Export Script",
+        }
+        MailApp.sendEmail(emailOpts);
+      }
+    }    
+  }
+}
 const resumeExport = e => {
   if ( ScriptStatus.get() === 'done' ) {
     console.log('Was completed. Cleaning up.');
@@ -570,66 +628,6 @@ class ScriptStatus {
     props.forEach(prop => {
       PropertiesService.getScriptProperties().deleteProperty(prop);
     })
-  }
-}
-
-const reviewEmails = (initial=true) => {
-  const _reviewLabel = ScriptStatus.get('_reviewLabel');
-  const _exportLabel = ScriptStatus.get('_exportLabel');
-  const _doneLabel = ScriptStatus.get('_doneLabel');
-  const _errorLabel = ScriptStatus.get('_errorLabel');
-  const _driveFolder = ScriptStatus.get('_driveFolder');
-  const _emailWeekly = ScriptStatus.get('_emailWeekly');
-  
-  /** @type Array */
-  let _excludeLabels = JSON.parse(ScriptStatus.get('_excludeLabels'));
-  _excludeLabels.push(_exportLabel, _doneLabel, _errorLabel);
-
-  let d = new Date();
-  d.setFullYear(d.getFullYear()-1);
-  d.setMonth(d.getMonth() + 1);
-  const archiveDate = Utilities.formatDate(d, "America/Los_Angeles", "yyyy-MM-dd");
-
-  let str = `before:${archiveDate} -label:${cleanLabel(_reviewLabel)}`;
-  _excludeLabels.forEach(lbl => str += ` -label:${cleanLabel(lbl)}`);
-  
-  const lblReview = getOrCreateLabel(_reviewLabel);
-
-  Logger.log("SEARCH: %s", str);
-  const threads = GmailApp.search(str);
-  const numThreads = threads.length;
-  Logger.log("Found %s threads", numThreads);
-  threads.forEach( thread => thread.addLabel(lblReview) );
-  if ( numThreads === 500 ) {
-    reviewEmails(false);
-  } else {
-    if ( numThreads > 0 || !initial ) {
-      const exported = ScriptStatus.count();
-
-      if ( _emailWeekly ) {
-        const folders = DriveApp.getFoldersByName(_driveFolder);
-        const folder = folders.next();
-        const folderUrl = folder.getUrl();
-
-        const emailOpts = {
-          htmlBody: `<h3 style="font-family: Montserrat,Roboto,Arial;color: #55a63a">GmailToPdf Script &ndash; Weekly Summary</h3>
-          <p style="font-family:Roboto,Arial;font-size:11pt;max-width:500px;">
-          <strong>${parseInt(exported)}</strong> emails with the ${getLabelSpan(_exportLabel)} label have been saved as PDFs to your 
-          <a style="color:#1155cc" href="${folderUrl}">${_driveFolder} folder</a> and relabeled as ${getLabelSpan(_doneLabel)}.</p>
-          <p style="font-family:Roboto,Arial;font-size:11pt;max-width:500px;">
-          Emails that will be deleted within the next month have been labeled ${getLabelSpan(_reviewLabel)}.
-          Review <a style="color:#1155cc" href="https://mail.google.com/mail/u/0/#label/${_reviewLabel.replace(/ /,'+')}">
-          all threads with this label</a> and add the ${getLabelSpan(_exportLabel)} label if they need to be exported.</p>
-          <p style="font-family:Roboto,Arial;font-size:11pt;max-width:500px;">
-          <em style="color:#54565a">Labels excluded from search: ${_excludeLabels.join(", ")}</em></p>`,
-          to: Session.getActiveUser().getEmail(),
-          subject: `Weekly Summary: Email export and review for deletion`,
-          noReply: true,
-          name: "Gmail Export Script",
-        }
-        MailApp.sendEmail(emailOpts);
-      }
-    }    
   }
 }
 
