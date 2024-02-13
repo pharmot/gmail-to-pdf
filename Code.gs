@@ -1,10 +1,11 @@
 /**
- * Gmail to PDF Script v2.1.0
- * 
- * @copyright 2023 Andy Briggs<andy.briggs@vmfh.org>
+ * Gmail to PDF Script v2.1.2
+ *
+ * @copyright 2023-2024 Andy Briggs <andy.briggs@vmfh.org>
  * @license MIT
+ * @link https://github.com/pharmot/gmail-to-pdf/blob/main/Code.gs
  * Created        : 2023-12-29
- * Last modified  : 2024-02-09
+ * Last modified  : 2024-02-12
  * 
  * If you change any of these variables, run the 'setup' function again to
  * apply the changes. 
@@ -77,22 +78,26 @@ const setup = () => {
   ScriptStatus.set(emailOnError, '_emailOnError');
   ScriptStatus.set(JSON.stringify(excludeAttachments), '_excludeAttachments');
   ScriptStatus.set(JSON.stringify(excludeLabels), '_excludeLabels' );
+  Logger.log('[SCRIPT SETUP] - Variables updated')
   const myExportLabel = getOrCreateLabel(exportLabel);
   ScriptApp.getProjectTriggers().forEach(trigger => {
     if ( trigger.getHandlerFunction() !== 'resumeExport') {
       ScriptApp.deleteTrigger(trigger)
     }    
-  });
+  }); 
 
   if ( exportDaily ) {
     ScriptApp.newTrigger('main').timeBased().everyDays(1).atHour(3).create();
+    Logger.log('- Created daily trigger to export emails labeled "%s"', exportLabel);
   }  
   if ( checkWeekly ) {
     const now = new Date();
     const runAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() + 1,0,0);
     ScriptApp.newTrigger('reviewEmails').timeBased().everyWeeks(1).onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(12).create();
     ScriptApp.newTrigger('reviewEmails').timeBased().at(runAt).create();
-  }  
+    Logger.log('- Created weekly trigger to add "%s" label to emails that need review. Will run now, then every Monday at 12:00 thereafter.', reviewLabel);
+    Logger.log('OK to close this tab')
+  }
 }
 
 const main = () => {
